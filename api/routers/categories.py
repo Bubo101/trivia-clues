@@ -16,10 +16,12 @@ class CategoryOut(BaseModel):
     title: str
     canon: bool
 
+class CategoryWithClueCount(CategoryOut):
+    num_clues: int
 
 class Categories(BaseModel):
     page_count: int
-    categories: list[CategoryOut]
+    categories: list[CategoryWithClueCount]
 
 
 class Message(BaseModel):
@@ -35,9 +37,12 @@ def categories_list(page: int = 0):
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, title, canon
-                FROM categories
-                ORDER BY title
+                SELECT c.id, c.title, c.canon, COUNT(cl.*) as num_clues
+                FROM categories c
+                LEFT OUTER JOIN clues cl 
+                ON (c.id = cl.category_id)
+                GROUP BY c.id,c.title,c.canon
+                ORDER BY c.title
                 LIMIT 100 OFFSET %s
             """,
                 [page * 100],
@@ -70,7 +75,7 @@ def get_category(category_id: int, response: Response):
     with psycopg.connect() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                f"""
+                """
                 SELECT id, title, canon
                 FROM categories
                 WHERE id = %s
